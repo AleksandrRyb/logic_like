@@ -11,8 +11,17 @@ import { ERRORS } from "../../config/constants";
 import { logger } from "../../config/logger";
 
 export async function listIdeas(req: Request, res: Response) {
-    const result = await listIdeasWithHasVoted(req);
-    return res.json(result);
+    try {
+        const result = await listIdeasWithHasVoted(req);
+        return res.json(result);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            logger.error({ err }, "listIdeas failed");
+            return res.status(500).json({ error: ERRORS.internal });
+        }
+        logger.error({ err }, "listIdeas failed");
+        return res.status(500).json({ error: ERRORS.internal });
+    }
 }
 
 export async function voteIdea(req: Request, res: Response) {
@@ -38,11 +47,12 @@ export async function voteIdea(req: Request, res: Response) {
         }
         await voteForIdea(ip, ideaId);
         return res.status(201).json({ ok: true });
-    } catch (err: any) {
-        if (err && typeof err === "object" && (err as any).code === "23505") {
-            return res.status(409).json({ error: ERRORS.alreadyVoted });
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            logger.error({ err }, "voteIdea failed");
+            return res.status(500).json({ error: ERRORS.failedVote });
         }
         logger.error({ err }, "voteIdea failed");
-        return res.status(500).json({ error: ERRORS.failedVote });
+        return res.status(500).json({ error: ERRORS.internal });
     }
 }

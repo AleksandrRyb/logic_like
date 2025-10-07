@@ -77,16 +77,23 @@ export async function listIdeasWithHasVoted(req: {
 	}> }>
 {
 	const ip = await getClientIp(req);
-	const items = await db
-		.select()
-		.from(ideas)
-		.orderBy(desc(ideas.votesCount), asc(ideas.createdAt));
-	const voted = await db
-		.select({ ideaId: votes.ideaId })
-		.from(votes)
-		.where(eq(votes.ip, ip));
-	const votedSet = new Set(voted.map((v) => v.ideaId));
+
+
+	const rows = await db
+	.select({
+		id: ideas.id,
+		title: ideas.title,
+		description: ideas.description,
+		votesCount: ideas.votesCount,
+		createdAt: ideas.createdAt,
+		hasVoted: sql<boolean>`(${votes.id} IS NOT NULL)`.as("hasVoted"),
+	})
+	.from(ideas)
+	.leftJoin(votes, and(eq(votes.ideaId, ideas.id), eq(votes.ip, ip)))
+	.groupBy(ideas.id, ideas.title, ideas.description, ideas.votesCount, ideas.createdAt, votes.id)
+	.orderBy(desc(ideas.votesCount), asc(ideas.createdAt));
+
 	return {
-		items: items.map((it) => ({ ...it, hasVoted: votedSet.has(it.id) })),
+		items: rows,
 	};
 }
